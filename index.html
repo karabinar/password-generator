@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Password Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        #password {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            word-break: break-all;
+            min-height: 1.5em;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .copy-btn {
+            background-color: #008CBA;
+        }
+        .copy-btn:hover {
+            background-color: #0077a3;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .slider {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: #ddd;
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        .number-input {
+            width: 60px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .notification {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+        .requirements {
+            margin: 15px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        .error {
+            color: red;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Random Password Generator</h1>
+        
+        <div class="controls">
+            <div class="input-group">
+                <span>Length:</span>
+                <input type="range" id="passwordSlider" class="slider" min="8" max="64" value="16">
+                <input type="number" id="passwordInput" class="number-input" min="8" max="64" value="16">
+            </div>
+            <div id="lengthError" class="error"></div>
+            <div class="requirements">
+                (Minimum 8 characters: 2 uppercase, 2 lowercase, 2 numbers, 2 special)
+            </div>
+        </div>
+        
+        <div id="password"></div>
+        
+        <div class="actions">
+            <button onclick="generatePassword()">Generate Password</button>
+            <button class="copy-btn" onclick="copyPassword()">Copy to Clipboard</button>
+        </div>
+    </div>
+    
+    <div class="notification" id="copyNotification">Password copied!</div>
+
+    <script>
+        // DOM elements
+        const slider = document.getElementById('passwordSlider');
+        const numberInput = document.getElementById('passwordInput');
+        const passwordDisplay = document.getElementById('password');
+        const errorDisplay = document.getElementById('lengthError');
+        
+        // Character sets
+        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const numbers = '0123456789';
+        const specials = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+        
+        // Sync inputs
+        function syncInputs(value) {
+            slider.value = value;
+            numberInput.value = value;
+        }
+        
+        // Validate length
+        function validateLength(value) {
+            if (value < 8 || value > 64) {
+                errorDisplay.textContent = 'Length must be between 8-64';
+                return false;
+            }
+            errorDisplay.textContent = '';
+            return true;
+        }
+        
+        // Event listeners
+        slider.addEventListener('input', function() {
+            syncInputs(this.value);
+            if (validateLength(this.value)) generatePassword();
+        });
+        
+        numberInput.addEventListener('input', function() {
+            if (validateLength(this.value)) {
+                syncInputs(this.value);
+                generatePassword();
+            }
+        });
+        
+        numberInput.addEventListener('blur', function() {
+            if (this.value < 8) {
+                this.value = 8;
+                syncInputs(8);
+            } else if (this.value > 64) {
+                this.value = 64;
+                syncInputs(64);
+            }
+            generatePassword();
+        });
+        
+        function generatePassword() {
+            const length = parseInt(slider.value);
+            
+            // Ensure at least 2 of each character type
+            let password = [];
+            
+            // Add required characters
+            password.push(...getRandomChars(uppercase, 2));
+            password.push(...getRandomChars(lowercase, 2));
+            password.push(...getRandomChars(numbers, 2));
+            password.push(...getRandomChars(specials, 2));
+            
+            // Fill remaining length with random mix
+            const allChars = uppercase + lowercase + numbers + specials;
+            for (let i = password.length; i < length; i++) {
+                password.push(getRandomChar(allChars));
+            }
+            
+            // Shuffle and display
+            passwordDisplay.textContent = shuffleArray(password).join('');
+        }
+        
+        // Helper functions
+        function getRandomChar(chars) {
+            return chars[Math.floor(Math.random() * chars.length)];
+        }
+        
+        function getRandomChars(chars, count) {
+            return Array.from({length: count}, () => getRandomChar(chars));
+        }
+        
+        function shuffleArray(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+        
+        function copyPassword() {
+            const password = passwordDisplay.textContent;
+            if (password) {
+                navigator.clipboard.writeText(password)
+                    .then(() => {
+                        const notification = document.getElementById('copyNotification');
+                        notification.classList.add('show');
+                        setTimeout(() => notification.classList.remove('show'), 1500);
+                    })
+                    .catch(err => console.error('Copy failed:', err));
+            }
+        }
+        
+        // Initialize
+        window.onload = generatePassword;
+    </script>
+</body>
+</html>
