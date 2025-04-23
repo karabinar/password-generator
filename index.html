@@ -109,6 +109,18 @@
             font-size: 13px;
             margin-top: 5px;
         }
+        .checkbox-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
@@ -118,12 +130,32 @@
         <div class="controls">
             <div class="input-group">
                 <span>Length:</span>
-                <input type="range" id="passwordSlider" class="slider" min="8" max="64" value="16">
-                <input type="number" id="passwordInput" class="number-input" min="8" max="64" value="16">
+                <input type="range" id="passwordSlider" class="slider" min="4" max="64" value="16">
+                <input type="number" id="passwordInput" class="number-input" min="4" max="64" value="16">
             </div>
             <div id="lengthError" class="error"></div>
+            
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="uppercaseCheck" checked>
+                    <label for="uppercaseCheck">Uppercase (A-Z)</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="lowercaseCheck" checked>
+                    <label for="lowercaseCheck">Lowercase (a-z)</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="numbersCheck" checked>
+                    <label for="numbersCheck">Numbers (0-9)</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="specialsCheck" checked>
+                    <label for="specialsCheck">Special Chars (!@#...)</label>
+                </div>
+            </div>
+            
             <div class="requirements">
-                (Minimum 8 characters: 2 uppercase, 2 lowercase, 2 numbers, 2 special)
+                Minimum requirements: At least 1 of each selected character type
             </div>
         </div>
         
@@ -143,6 +175,10 @@
         const numberInput = document.getElementById('passwordInput');
         const passwordDisplay = document.getElementById('password');
         const errorDisplay = document.getElementById('lengthError');
+        const uppercaseCheck = document.getElementById('uppercaseCheck');
+        const lowercaseCheck = document.getElementById('lowercaseCheck');
+        const numbersCheck = document.getElementById('numbersCheck');
+        const specialsCheck = document.getElementById('specialsCheck');
         
         // Character sets
         const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -158,8 +194,21 @@
         
         // Validate length
         function validateLength(value) {
-            if (value < 8 || value > 64) {
-                errorDisplay.textContent = 'Length must be between 8-64';
+            if (value < 4 || value > 64) {
+                errorDisplay.textContent = 'Length must be between 4-64';
+                return false;
+            }
+            errorDisplay.textContent = '';
+            return true;
+        }
+        
+        // Validate at least 2 checkboxes are selected
+        function validateCheckboxes() {
+            const checkedCount = [uppercaseCheck, lowercaseCheck, numbersCheck, specialsCheck]
+                .filter(checkbox => checkbox.checked).length;
+            
+            if (checkedCount < 2) {
+                errorDisplay.textContent = 'Select at least 2 character types';
                 return false;
             }
             errorDisplay.textContent = '';
@@ -169,47 +218,75 @@
         // Event listeners
         slider.addEventListener('input', function() {
             syncInputs(this.value);
-            if (validateLength(this.value)) generatePassword();
+            if (validateLength(this.value) && validateCheckboxes()) {
+                generatePassword();
+            }
         });
         
         numberInput.addEventListener('input', function() {
-            if (validateLength(this.value)) {
+            if (validateLength(this.value) && validateCheckboxes()) {
                 syncInputs(this.value);
                 generatePassword();
             }
         });
         
         numberInput.addEventListener('blur', function() {
-            if (this.value < 8) {
-                this.value = 8;
-                syncInputs(8);
+            if (this.value < 4) {
+                this.value = 4;
+                syncInputs(4);
             } else if (this.value > 64) {
                 this.value = 64;
                 syncInputs(64);
             }
-            generatePassword();
+            if (validateCheckboxes()) generatePassword();
+        });
+        
+        // Add event listeners to checkboxes
+        [uppercaseCheck, lowercaseCheck, numbersCheck, specialsCheck].forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (validateCheckboxes()) {
+                    generatePassword();
+                }
+            });
         });
         
         function generatePassword() {
             const length = parseInt(slider.value);
-            
-            // Ensure at least 2 of each character type
             let password = [];
+            let allChars = '';
             
-            // Add required characters
-            password.push(...getRandomChars(uppercase, 2));
-            password.push(...getRandomChars(lowercase, 2));
-            password.push(...getRandomChars(numbers, 2));
-            password.push(...getRandomChars(specials, 2));
+            // Add required characters based on selected types
+            if (uppercaseCheck.checked) {
+                password.push(...getRandomChars(uppercase, 1));
+                allChars += uppercase;
+            }
+            if (lowercaseCheck.checked) {
+                password.push(...getRandomChars(lowercase, 1));
+                allChars += lowercase;
+            }
+            if (numbersCheck.checked) {
+                password.push(...getRandomChars(numbers, 1));
+                allChars += numbers;
+            }
+            if (specialsCheck.checked) {
+                password.push(...getRandomChars(specials, 1));
+                allChars += specials;
+            }
+            
+            // Check if we have enough characters
+            if (password.length > length) {
+                errorDisplay.textContent = `Minimum length must be ${password.length} for selected requirements`;
+                return;
+            }
             
             // Fill remaining length with random mix
-            const allChars = uppercase + lowercase + numbers + specials;
             for (let i = password.length; i < length; i++) {
                 password.push(getRandomChar(allChars));
             }
             
             // Shuffle and display
             passwordDisplay.textContent = shuffleArray(password).join('');
+            errorDisplay.textContent = '';
         }
         
         // Helper functions
