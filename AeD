@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Strong Encryptor/Decryptor</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        .container {
+            width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin-bottom: 10px;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        button {
+            padding: 10px 15px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 3px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Strong Encryptor/Decryptor</h2>
+
+        <div>
+            <label for="plainText">Plain Text:</label><br>
+            <textarea id="plainText"></textarea>
+        </div>
+
+        <div>
+            <label for="encryptedText">Encrypted Text:</label><br>
+            <textarea id="encryptedText"></textarea>
+        </div>
+
+        <button onclick="encryptAndDisplay()">Encrypt</button>
+        <button onclick="decryptAndDisplay()">Decrypt</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const salt = "56lHJUFHAdv6OW3BB8R6iSBqddtLNySj5ftVFSF63lFXf77r";
+        const key = "aBmidPmrojvSA5bsP8zFU1W0nogqKFZ1WM96JeMBmKI2PE7f";
+
+        async function deriveKey(salt) {
+            const textEncoder = new TextEncoder();
+            const saltData = textEncoder.encode(salt);
+            const keyMaterial = await crypto.subtle.importKey(
+                "raw",
+                textEncoder.encode(key),
+                "PBKDF2",
+                false,
+                ["deriveKey"]
+            );
+            return await crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: saltData,
+                    iterations: 100000, // High iteration count for security
+                    hash: "SHA-256",
+                },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                true,
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        async function encryptData(plainText) {
+            const derivedKey = await deriveKey(salt);
+            const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM uses 12-byte IV
+            const encodedText = new TextEncoder().encode(plainText);
+            const ciphertext = await crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv,
+                },
+                derivedKey,
+                encodedText
+            );
+            const ciphertextArray = new Uint8Array(ciphertext);
+            const base64Ciphertext = btoa(String.fromCharCode.apply(null, ciphertextArray));
+            const base64IV = btoa(String.fromCharCode.apply(null, iv));
+             return `${base64Ciphertext}|${base64IV}`;
+        }
+
+        async function decryptData(encryptedText) {
+            try {
+                const parts = encryptedText.split("|");
+                const base64Ciphertext = parts[0];
+                const base64IV = parts[1];
+
+                const derivedKey = await deriveKey(salt);
+                const ciphertextArray = new Uint8Array(atob(base64Ciphertext).split('').map(char => char.charCodeAt(0)));
+                const iv = new Uint8Array(atob(base64IV).split('').map(char => char.charCodeAt(0)));
+
+                const decrypted = await crypto.subtle.decrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv,
+                    },
+                    derivedKey,
+                    ciphertextArray
+                );
+                return new TextDecoder().decode(decrypted);
+            } catch (error) {
+                console.error("Decryption error:", error);
+                return "Decryption failed!";
+            }
+        }
+
+        async function encryptAndDisplay() {
+            const plainText = document.getElementById("plainText").value;
+            const encryptedResult = await encryptData(plainText);
+            document.getElementById("encryptedText").value = encryptedResult;
+            document.getElementById("result").innerText = "Encryption successful!";
+        }
+
+        async function decryptAndDisplay() {
+            const encryptedText = document.getElementById("encryptedText").value;
+            const decryptedResult = await decryptData(encryptedText);
+            document.getElementById("plainText").value = decryptedResult;
+            document.getElementById("result").innerText = "Decryption successful!";
+        }
+    </script>
+</body>
+</html>
