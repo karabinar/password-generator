@@ -6,7 +6,7 @@
     <title>Random Password Generator</title>
     <style>
         body {
-            font-family: 'Roboto Mono', monospace;
+            font-family: Arial, sans-serif;
             max-width: 500px;
             margin: 0 auto;
             padding: 20px;
@@ -28,6 +28,7 @@
             border-radius: 6px;
             word-break: break-all;
             min-height: 1.5em;
+            line-height: 1.8;
         }
         button {
             background-color: #4CAF50;
@@ -121,6 +122,18 @@
             align-items: center;
             gap: 5px;
         }
+        .uppercase {
+            color: #000000; /* Black for uppercase */
+        }
+        .lowercase {
+            color: #FF5252; /* Red for lowercase */
+        }
+        .number {
+            color: #4CAF50; /* Green for numbers */
+        }
+        .special {
+            color: #2196F3; /* Blue for special chars */
+        }
     </style>
 </head>
 <body>
@@ -130,8 +143,8 @@
         <div class="controls">
             <div class="input-group">
                 <span>Length:</span>
-                <input type="range" id="passwordSlider" class="slider" min="4" max="64" value="16">
-                <input type="number" id="passwordInput" class="number-input" min="4" max="64" value="16">
+                <input type="range" id="passwordSlider" class="slider" min="8" max="64" value="16">
+                <input type="number" id="passwordInput" class="number-input" min="8" max="64" value="16">
             </div>
             <div id="lengthError" class="error"></div>
             
@@ -152,10 +165,18 @@
                     <input type="checkbox" id="specialsCheck" checked>
                     <label for="specialsCheck">Special Chars (!@#...)</label>
                 </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="avoidAmbiguousCheck">
+                    <label for="avoidAmbiguousCheck">Avoid ambiguous chars (I,l,|,etc.)</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="colorToggle" checked>
+                    <label for="colorToggle">Enable color coding</label>
+                </div>
             </div>
             
             <div class="requirements">
-                Minimum requirements: At least 1 of each selected character type
+                Minimum requirements: At least 2 of each selected character type
             </div>
         </div>
         
@@ -179,12 +200,19 @@
         const lowercaseCheck = document.getElementById('lowercaseCheck');
         const numbersCheck = document.getElementById('numbersCheck');
         const specialsCheck = document.getElementById('specialsCheck');
+        const avoidAmbiguousCheck = document.getElementById('avoidAmbiguousCheck');
+        const colorToggle = document.getElementById('colorToggle');
         
         // Character sets
-        const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-        const numbers = '0123456789';
-        const specials = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+        const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removed I
+        const lowercase = 'abcdefghjkmnpqrstuvwxyz';   // Removed l, i
+        const numbers = '23456789';                    // Removed 0, 1
+        const specials = '!@#$%^&*()_+-=[]{}|;:,.<>?'.replace(/[|]/g, ''); // Removed |
+        
+        const ambiguousUppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const ambiguousLowercase = 'abcdefghijklmnopqrstuvwxyz';
+        const ambiguousNumbers = '0123456789';
+        const ambiguousSpecials = '!@#$%^&*()_+-=[]{}|;:,.<>?';
         
         // Sync inputs
         function syncInputs(value) {
@@ -194,8 +222,8 @@
         
         // Validate length
         function validateLength(value) {
-            if (value < 4 || value > 64) {
-                errorDisplay.textContent = 'Length must be between 4-64';
+            if (value < 8 || value > 64) {
+                errorDisplay.textContent = 'Length must be between 8-64';
                 return false;
             }
             errorDisplay.textContent = '';
@@ -215,6 +243,19 @@
             return true;
         }
         
+        // Get appropriate character set based on settings
+        function getCharacterSet(originalSet, ambiguousSet) {
+            return avoidAmbiguousCheck.checked ? originalSet : ambiguousSet;
+        }
+        
+        // Get CSS class for character type
+        function getCharClass(char) {
+            if (/[A-Z]/.test(char)) return 'uppercase';
+            if (/[a-z]/.test(char)) return 'lowercase';
+            if (/[0-9]/.test(char)) return 'number';
+            return 'special';
+        }
+        
         // Event listeners
         slider.addEventListener('input', function() {
             syncInputs(this.value);
@@ -231,9 +272,9 @@
         });
         
         numberInput.addEventListener('blur', function() {
-            if (this.value < 4) {
-                this.value = 4;
-                syncInputs(4);
+            if (this.value < 8) {
+                this.value = 8;
+                syncInputs(8);
             } else if (this.value > 64) {
                 this.value = 64;
                 syncInputs(64);
@@ -242,7 +283,7 @@
         });
         
         // Add event listeners to checkboxes
-        [uppercaseCheck, lowercaseCheck, numbersCheck, specialsCheck].forEach(checkbox => {
+        [uppercaseCheck, lowercaseCheck, numbersCheck, specialsCheck, avoidAmbiguousCheck, colorToggle].forEach(checkbox => {
             checkbox.addEventListener('change', function() {
                 if (validateCheckboxes()) {
                     generatePassword();
@@ -255,22 +296,28 @@
             let password = [];
             let allChars = '';
             
+            // Get appropriate character sets based on settings
+            const currentUppercase = getCharacterSet(uppercase, ambiguousUppercase);
+            const currentLowercase = getCharacterSet(lowercase, ambiguousLowercase);
+            const currentNumbers = getCharacterSet(numbers, ambiguousNumbers);
+            const currentSpecials = getCharacterSet(specials, ambiguousSpecials);
+            
             // Add required characters based on selected types
             if (uppercaseCheck.checked) {
-                password.push(...getRandomChars(uppercase, 1));
-                allChars += uppercase;
+                password.push(...getRandomChars(currentUppercase, 2));
+                allChars += currentUppercase;
             }
             if (lowercaseCheck.checked) {
-                password.push(...getRandomChars(lowercase, 1));
-                allChars += lowercase;
+                password.push(...getRandomChars(currentLowercase, 2));
+                allChars += currentLowercase;
             }
             if (numbersCheck.checked) {
-                password.push(...getRandomChars(numbers, 1));
-                allChars += numbers;
+                password.push(...getRandomChars(currentNumbers, 2));
+                allChars += currentNumbers;
             }
             if (specialsCheck.checked) {
-                password.push(...getRandomChars(specials, 1));
-                allChars += specials;
+                password.push(...getRandomChars(currentSpecials, 2));
+                allChars += currentSpecials;
             }
             
             // Check if we have enough characters
@@ -285,7 +332,18 @@
             }
             
             // Shuffle and display
-            passwordDisplay.textContent = shuffleArray(password).join('');
+            const shuffled = shuffleArray(password);
+            
+            if (colorToggle.checked) {
+                // Display with color coding
+                passwordDisplay.innerHTML = shuffled.map(char => 
+                    `<span class="${getCharClass(char)}">${char}</span>`
+                ).join('');
+            } else {
+                // Display without color coding
+                passwordDisplay.textContent = shuffled.join('');
+            }
+            
             errorDisplay.textContent = '';
         }
         
